@@ -834,11 +834,13 @@ hdmi_force_hotplug=1
 
 # uncomment to force a specific HDMI mode (this will force VGA)
 #hdmi_group=1
-#hdmi_mode=1
+[HDMI:1]
+hdmi_group=1
+hdmi_mode=16
 
 # uncomment to force a HDMI mode rather than DVI. This can make audio work in
 # DMT (computer monitor) modes
-#hdmi_drive=2
+hdmi_drive=2
 
 # uncomment to increase signal to HDMI, if you have interference, blanking, or
 # no display
@@ -866,6 +868,7 @@ dtoverlay=vc4-fkms-v3d
 max_framebuffers=2
 arm_64bit=1
 #device_tree_address=0x03000000
+gpu_mem=256
 
 [all]
 #dtoverlay=vc4-fkms-v3d
