@@ -17,6 +17,9 @@ sudo add-apt-repository ppa:ubuntu-x-swat/updates -ynr
 sudo add-apt-repository ppa:ubuntu-raspi2/ppa -ynr
 sudo add-apt-repository ppa:oibaf/graphics-drivers -yn
 
+# Fix flash-kernel
+sudo apt-mark hold flash-kernel
+
 # Fix cups
 if [ -f /etc/modules-load.d/cups-filters.conf ]; then
   rm -f /etc/modules-load.d/cups-filters.conf
@@ -24,8 +27,7 @@ if [ -f /etc/modules-load.d/cups-filters.conf ]; then
 fi
 
 # Install dependencies
-sudo apt update && sudo apt install libblockdev-mdraid2 wireless-tools iw rfkill bluez libnewt0.52 whiptail lua5.1 git bc bison flex libssl-dev -y
-sudo apt-get dist-upgrade -y
+sudo apt update && sudo apt install haveged libblockdev-mdraid2 wireless-tools iw rfkill bluez libnewt0.52 whiptail lua5.1 git bc bison flex libssl-dev -y && sudo apt dist-upgrade -y
 
 echo "Checking for updates ..."
 
@@ -71,8 +73,13 @@ if [ -e "/etc/imgrelease" ]; then
 fi
 
 if [ "$LatestRelease" == "$CurrentRelease" ]; then
-    echo "You have release ${LatestRelease}. No updates are currently available!"
-    exit
+  echo "You have release ${LatestRelease}. No updates are currently available!"
+  echo -n "Force an update anyway? (y/n)"
+  read answer
+  if [ "$answer" == "${answer#[Yy]}" ]; then
+      echo "Update has been aborted!"
+      exit
+  fi
 fi
 
 # Update is available, confirm insatallation with user
@@ -313,6 +320,20 @@ if [ -n "`which hciattach`" ]; then
   hciattach /dev/ttyAMA0 bcm43xx 921600
 fi
 
+# Fix xubuntu-desktop/lightdm if present
+if [ -n "`which lightdm`" ]; then
+  if [ ! -f "/etc/X11/xorg.conf" ]; then
+    echo "Fixing LightDM ..."
+    cat << EOF2 | tee /etc/X11/xorg.conf >/dev/null
+Section "Device"
+Identifier "Card0"
+Driver "modesetting"
+EndSection
+EOF2
+    systemctl restart lightdm
+  fi
+fi
+
 echo "Ubuntu fixes complete ..."
 
 exit 0
@@ -350,6 +371,83 @@ if [ -f /etc/rc.local ]; then
     echo "Removing old Ubuntu fix file ..."
     sudo rm -f /etc/rc.local
   fi
+fi
+
+# Remove old /etc/X11/xorg.conf config if present
+if [ -f /etc/X11/xorg.conf ]; then
+  GrepCheck=$(cat /etc/X11/xorg.conf | grep "fbdev")
+  if [ ! -z "$GrepCheck" ]; then
+    echo "Removing old X11 xorg.conf file ..."
+    sudo rm -f /etc/X11/xorg.conf
+  fi
+fi
+
+if [ ! -f /boot/firmware/network-config ]; then
+# Create network-config
+cat << EOF | tee ~/updates/bootfs/network-config >/dev/null
+# This file contains a netplan-compatible configuration which cloud-init
+# will apply on first-boot. Please refer to the cloud-init documentation and
+# the netplan reference for full details:
+#
+# https://cloudinit.readthedocs.io/
+# https://netplan.io/reference
+#
+# Some additional examples are commented out below
+
+version: 2
+ethernets:
+  eth0:
+    dhcp4: true
+    optional: true
+#wifis:
+#  wlan0:
+#    dhcp4: true
+#    optional: true
+#    access-points:
+#      homessid:
+#        password: "S3kr1t"
+EOF
+fi
+
+# Create meta-data
+if [ ! -f /boot/firmware/meta-data ]; then
+cat << EOF | tee ~/updates/bootfs/meta-data >/dev/null
+# This is the meta-data configuration file for cloud-init. Typically this just
+# contains the instance_id. Please refer to the cloud-init documentation for
+# more information:
+#
+# https://cloudinit.readthedocs.io/
+
+instance_id: cloud-image
+EOF
+fi
+
+# Create user-data
+if [ ! -f /boot/firmware/user-data ]; then
+cat << EOF | tee ~/updates/bootfs/user-data >/dev/null
+#cloud-config
+
+# This is the user-data configuration file for cloud-init. By default this sets
+# up an initial user called "ubuntu" with password "ubuntu", which must be
+# changed at first login. However, many additional actions can be initiated on
+# first boot from this file. The cloud-init documentation has more details:
+#
+# https://cloudinit.readthedocs.io/
+#
+# Some additional examples are provided in comments below the default
+# configuration.
+
+# Enable password authentication with the SSH daemon
+ssh_pwauth: true
+
+# On first boot, set the (default) ubuntu user's password to "ubuntu" and
+# expire user passwords
+chpasswd:
+  expire: true
+  list:
+  - ubuntu:ubuntu
+
+EOF
 fi
 
 echo "Update completed!"

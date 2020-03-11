@@ -14,19 +14,20 @@
 
 # CONFIGURATION
 
-IMAGE_VERSION="21"
-SOURCE_RELEASE="18.04.3"
-
-TARGET_IMG="ubuntu-18.04.3-preinstalled-server-arm64+raspi4.img"
-TARGET_IMGXZ="ubuntu-18.04.3-preinstalled-server-arm64+raspi4.img.xz"
-DESKTOP_IMGXZ="ubuntu-18.04.3-preinstalled-desktop-arm64+raspi4.img.xz"
-DESKTOP_IMG="ubuntu-18.04.3-preinstalled-desktop-arm64+raspi4.img"
-SOURCE_IMG="ubuntu-18.04.3-preinstalled-server-arm64+raspi3.img"
-SOURCE_IMGXZ="ubuntu-18.04.3-preinstalled-server-arm64+raspi3.img.xz"
-RASPBIAN_IMG="2019-09-26-raspbian-buster-lite.img"
-RASPBIAN_IMGZIP="2019-09-26-raspbian-buster-lite.img.zip"
-UBUNTU_IMG="ubuntu-19.10-preinstalled-server-arm64+raspi3.img"
-UBUNTU_IMGXZ="ubuntu-19.10-preinstalled-server-arm64+raspi3.img.xz"
+IMAGE_VERSION="28"
+SOURCE_RELEASE="18.04.4"
+TARGET_IMG="ubuntu-$SOURCE_RELEASE-preinstalled-server-arm64+raspi4.img"
+TARGET_IMGXZ="ubuntu-$SOURCE_RELEASE-preinstalled-server-arm64+raspi4.img.xz"
+DESKTOP_IMGXZ="ubuntu-$SOURCE_RELEASE-preinstalled-desktop-arm64+raspi4.img.xz"
+DESKTOP_IMG="ubuntu-$SOURCE_RELEASE-preinstalled-desktop-arm64+raspi4.img"
+XUBUNTU_DESKTOP_IMG="xubuntu-$SOURCE_RELEASE-preinstalled-desktop-arm64+raspi4.img"
+XUBUNTU_DESKTOP_IMGXZ="xubuntu-$SOURCE_RELEASE-preinstalled-desktop-arm64+raspi4.img.xz"
+SOURCE_IMG="ubuntu-$SOURCE_RELEASE-preinstalled-server-arm64+raspi3.img"
+SOURCE_IMGXZ="ubuntu-$SOURCE_RELEASE-preinstalled-server-arm64+raspi3.img.xz"
+RASPBIAN_IMG="2020-02-13-raspbian-buster-lite.img"
+RASPBIAN_IMGZIP="2020-02-13-raspbian-buster-lite.img.zip"
+UBUNTU_IMG="ubuntu-19.10.1-preinstalled-server-arm64+raspi3.img"
+UBUNTU_IMGXZ="ubuntu-19.10.1-preinstalled-server-arm64+raspi3.img.xz"
 
 export SLEEP_SHORT="0.1"
 export SLEEP_LONG="1"
@@ -381,7 +382,7 @@ function ShrinkIMG {
 cd ~
 if [ ! -d "/opt/cross-pi-gcc-9.2.0-64" ]; then
   # Install dependencies
-  echo "Installing dependencies"
+  echo "Installing cross pi build toolchain dependencies ..."
   sudo apt-get install git curl unzip build-essential libgmp-dev libmpfr-dev libmpc-dev libssl-dev bison flex kpartx libguestfs-tools gawk gcc g++ gfortran cmake texinfo libncurses-dev pkg-config -y
 
   curl --location "https://sourceforge.net/projects/raspberry-pi-cross-compilers/files/latest/download" --output "cross-pi-gcc-9.2.0-64.tar.gz"
@@ -415,14 +416,14 @@ PrepareIMG
 
 # % Get Raspberry Pi 3 Ubuntu source image 
 if [ ! -f "$SOURCE_IMGXZ" ]; then
-  echo "Retrieving Ubuntu 18.04.3 source image ..."
+  echo "Retrieving Ubuntu $SOURCE_RELEASE source image ..."
   wget http://cdimage.ubuntu.com/ubuntu/releases/"$SOURCE_RELEASE"/release/"$SOURCE_IMGXZ"
 fi
 
 # % Get Ubuntu source image 
 if [ ! -f "$UBUNTU_IMGXZ" ]; then
-  echo "Retrieving Ubuntu 19.10 source image ..."
-  wget http://cdimage.ubuntu.com/releases/eoan/release/ubuntu-19.10-preinstalled-server-arm64+raspi3.img.xz
+  echo "Retrieving Ubuntu 19.10.1 source image ..."
+  wget http://cdimage.ubuntu.com/ubuntu/releases/19.10.1/release/ubuntu-19.10.1-preinstalled-server-arm64+raspi3.img.xz
 fi
 
 if [ ! -f "$RASPBIAN_IMGZIP" ]; then
@@ -432,7 +433,7 @@ fi
 
 # % Extract and compact our source image from the xz if the source image isn't present
 if [ ! -f "$UBUNTU_IMG" ]; then
-  echo "Extracting Ubuntu 19.10 source image ..."
+  echo "Extracting Ubuntu 19.10.1 source image ..."
   xzcat --threads=0 "$UBUNTU_IMGXZ" > "$UBUNTU_IMG"
   MountIMG "$UBUNTU_IMG"
   MountIMGPartitions "${MOUNT_IMG}"
@@ -461,7 +462,7 @@ fi
 # % Extract and compact our source image from the xz if the source image isn't present
 cd ~
 if [ ! -f "$SOURCE_IMG" ]; then
-  echo "Extracting Ubuntu 18.04.3 source image ..."
+  echo "Extracting Ubuntu $SOURCE_RELEASE source image ..."
   xzcat --threads=0 "$SOURCE_IMGXZ" > "$SOURCE_IMG"
   MountIMG "$SOURCE_IMG"
   MountIMGPartitions "${MOUNT_IMG}"
@@ -475,16 +476,23 @@ if [ ! -f "$SOURCE_IMG" ]; then
   CompactIMG "$SOURCE_IMG"
 fi
 
-# % Create target image from Ubuntu 18.04.3 image
+# % Create target image from Ubuntu source image
 echo "Creating target image ..."
 if [ -f "$TARGET_IMG" ]; then
   sudo rm -rf "$TARGET_IMG"
 fi
+if [ -f "$DESKTOP_IMG" ]; then
+  sudo rm -rf "$DESKTOP_IMG"
+fi
+if [ -f "$XUBUNTU_DESKTOP_IMG" ]; then
+  sudo rm -rf "$XUBUNTU_DESKTOP_IMG"
+fi
 cp -vf "$SOURCE_IMG" "$TARGET_IMG"
 # % Expands the target image by approximately 300MB to help us not run out of space and encounter errors
 echo "Expanding target image free space ..."
-truncate -s +709715200 "$TARGET_IMG"
+truncate -s +1009715200 "$TARGET_IMG"
 sync; sync
+
 
 # GET USERLAND
 cd ~
@@ -541,6 +549,11 @@ sudo rm -rf ~/firmware-build/.github
 
 # % Remove unneeded firmware folders
 sudo rm -rf ~/firmware-build/LICEN*
+sudo rm -rf ~/firmware-build/WHENCE
+sudo rm -rf ~/firmware-build/check_whence.py
+sudo rm -rf ~/firmware-build/Makefile
+sudo rm -rf ~/firmware-build/copy-firmware.sh
+sudo rm -rf ~/firmware-build/PLUS.txt
 sudo rm -rf ~/firmware-build/netronome
 sudo rm -rf ~/firmware-build/amdgpu
 sudo rm -rf ~/firmware-build/radeon
@@ -657,6 +670,9 @@ mkdir -p ~/updates/rootfs/lib/firmware
 mkdir -p ~/updates/rootfs/lib/modules/"${KERNEL_VERSION}"
 mkdir -p ~/updates/rootfs/include/interface/vcos/generic
 mkdir -p ~/updates/rootfs/usr/src/"${KERNEL_VERSION}"
+mkdir -p ~/updates/rootfs/etc/
+mkdir -p ~/updates/rootfs/etc/flash-kernel
+mkdir -p ~/updates/rootfs/etc/flash-kernel/dtbs
 cp --recursive --update --archive --no-preserve=ownership ~/firmware-build/* ~/updates/rootfs/lib/firmware
 cp --recursive --update --archive --no-preserve=ownership ~/rpi-linux/lib/modules/* ~/updates/rootfs/lib/modules
 cp --recursive --update --archive --no-preserve=ownership ~/rpi-source/* ~/updates/rootfs/usr/src/"${KERNEL_VERSION}"
@@ -666,9 +682,83 @@ sleep "$SLEEP_SHORT"
 
 # % Copy overlays / image / firmware
 cp -rf ~/rpi-linux/arch/arm64/boot/dts/broadcom/*.dtb ~/updates/bootfs
+cp -rf ~/rpi-linux/arch/arm64/boot/dts/broadcom/*.dtb ~/updates/rootfs/etc/flash-kernel/dtbs
 cp -rf ~/rpi-linux/arch/arm64/boot/dts/overlays/*.dtb* ~/updates/bootfs/overlays
+cp -rf ~/rpi-linux/arch/arm64/boot/dts/overlays/README ~/updates/bootfs/overlays
 cp -rf ~/rpi-linux/arch/arm64/boot/dts/broadcom/*.dtb ~/updates/rootfs/usr/lib/"${KERNEL_VERSION}"/overlays
 cp -rf ~/rpi-linux/arch/arm64/boot/dts/overlays/*.dtb* ~/updates/rootfs/usr/lib/"${KERNEL_VERSION}"/broadcom
+cp -rf ~/rpi-linux/arch/arm64/boot/dts/overlays/README ~/updates/rootfs/usr/lib/"${KERNEL_VERSION}"/overlays
+
+# Create network-config
+cat << EOF | tee ~/updates/bootfs/network-config >/dev/null
+# This file contains a netplan-compatible configuration which cloud-init
+# will apply on first-boot. Please refer to the cloud-init documentation and
+# the netplan reference for full details:
+#
+# https://cloudinit.readthedocs.io/
+# https://netplan.io/reference
+#
+# Some additional examples are commented out below
+
+version: 2
+ethernets:
+  eth0:
+    dhcp4: true
+    optional: true
+#wifis:
+#  wlan0:
+#    dhcp4: true
+#    optional: true
+#    access-points:
+#      homessid:
+#        password: "S3kr1t"
+#      myotherlan:
+#        password: "correct battery horse staple"
+#      workssid:
+#        auth:
+#          key-management: eap
+#          method: peap
+#          identity: "me@example.com"
+#          password: "passw0rd"
+#          ca-certificate: /etc/my_ca.pem
+EOF
+
+# Create meta-data
+cat << EOF | tee ~/updates/bootfs/meta-data >/dev/null
+# This is the meta-data configuration file for cloud-init. Typically this just
+# contains the instance_id. Please refer to the cloud-init documentation for
+# more information:
+#
+# https://cloudinit.readthedocs.io/
+
+instance_id: cloud-image
+EOF
+
+# Create user-data
+cat << EOF | tee ~/updates/bootfs/user-data >/dev/null
+#cloud-config
+
+# This is the user-data configuration file for cloud-init. By default this sets
+# up an initial user called "ubuntu" with password "ubuntu", which must be
+# changed at first login. However, many additional actions can be initiated on
+# first boot from this file. The cloud-init documentation has more details:
+#
+# https://cloudinit.readthedocs.io/
+#
+# Some additional examples are provided in comments below the default
+# configuration.
+
+# Enable password authentication with the SSH daemon
+ssh_pwauth: true
+
+# On first boot, set the (default) ubuntu user's password to "ubuntu" and
+# expire user passwords
+chpasswd:
+  expire: true
+  list:
+  - ubuntu:ubuntu
+
+EOF
 
 # % Unmount and copy firmware copy to overlapping firmware folder
 while mountpoint -q /mnt/boot/firmware && ! sudo umount /mnt/boot/firmware; do
@@ -677,6 +767,7 @@ while mountpoint -q /mnt/boot/firmware && ! sudo umount /mnt/boot/firmware; do
 done
 sudo cp -rf ~/firmware/boot/*.elf /mnt/boot/firmware/
 sudo cp -rf ~/firmware/boot/*.dat /mnt/boot/firmware/
+sudo cp -rf ~/firmware/boot/*.bin /mnt/boot/firmware/
 sudo mount "/dev/mapper/${MOUNT_IMG}p1" /mnt/boot/firmware
 
 cp -rf ~/rpi-linux/arch/arm64/boot/Image ~/updates/rootfs/boot/kernel8.img
@@ -699,9 +790,10 @@ cp -rf ~/userland/build/arm-linux/release/vmcs_host_apps-1.0.pre-1-Linux/bin/* ~
 cp -rf ~/userland/build/arm-linux/release/vmcs_host_apps-1.0.pre-1-Linux/lib/* ~/updates/rootfs/usr/lib/aarch64-linux-gnu
 cp -rf ~/userland/build/arm-linux/release/vmcs_host_apps-1.0.pre-1-Linux/include/* ~/updates/rootfs/usr/include
 
-# % Copy kernel and gpu firmware start*.elf and fixup*.dat files
+# % Copy kernel and gpu firmware start*.elf, fixup*.dat and bootcode.bin files
 cp -rf ~/firmware/boot/*.elf ~/updates/bootfs
 cp -rf ~/firmware/boot/*.dat ~/updates/bootfs
+cp -rf ~/firmware/boot/*.bin ~/updates/bootfs
 
 cp -rf ~/rpi-linux/arch/arm64/boot/Image ~/updates/bootfs/kernel8.img
 sync; sync
@@ -738,7 +830,7 @@ disable_overscan=1
 #framebuffer_height=720
 
 # uncomment if hdmi display is not detected and composite is being output
-#hdmi_force_hotplug=1
+hdmi_force_hotplug=1
 
 # uncomment to force a specific HDMI mode (this will force VGA)
 #hdmi_group=1
@@ -756,9 +848,11 @@ disable_overscan=1
 #sdtv_mode=2
 
 # Uncomment some or all of these to enable the optional hardware interfaces
-#dtparam=i2c_arm=on
 #dtparam=spi=on
 #dtparam=i2s=on
+#dtparam=i2c_arm=on
+#dtparam=i2c1=on
+#dtparam=i2c0=on
 
 # Uncomment this to enable infrared communication.
 #dtoverlay=gpio-ir,gpio_pin=17
@@ -941,6 +1035,20 @@ if [ -n "`which hciattach`" ]; then
   hciattach /dev/ttyAMA0 bcm43xx 921600
 fi
 
+# Fix xubuntu-desktop/lightdm if present
+if [ -n "`which lightdm`" ]; then
+  if [ ! -f "/etc/X11/xorg.conf" ]; then
+    echo "Fixing LightDM ..."
+    cat << EOF2 | tee /etc/X11/xorg.conf >/dev/null
+Section "Device"
+Identifier "Card0"
+Driver "modesetting"
+EndSection
+EOF2
+    systemctl restart lightdm
+  fi
+fi
+
 echo "Ubuntu fixes complete ..."
 
 exit 0
@@ -985,7 +1093,7 @@ add-apt-repository ppa:oibaf/graphics-drivers -yn
 # % Install dependencies to build Pi modules (git build-essential bc bison flex libssl-dev device-tree-compiler)
 # % Install curl and unzip utilities
 # % Install missing libblockdev-mdraid
-apt update && apt install libblockdev-mdraid2 wireless-tools iw rfkill bluez libnewt0.52 whiptail lua5.1 git bc curl unzip build-essential libgmp-dev libmpfr-dev libmpc-dev libssl-dev bison flex -y && apt dist-upgrade -y
+apt update && apt install haveged libblockdev-mdraid2 wireless-tools iw rfkill bluez libnewt0.52 whiptail lua5.1 git bc curl unzip build-essential libgmp-dev libmpfr-dev libmpc-dev libssl-dev bison flex -y && apt dist-upgrade -y
 
 # % Clean up after ourselves and clean out package cache to keep the image small
 apt autoremove -y && apt clean && apt autoclean
@@ -1025,19 +1133,6 @@ EOF2
 sudo chmod +x /etc/init.d/ubuntufixes
 sudo update-rc.d ubuntufixes defaults
 /bin/bash /etc/ubuntufixes.sh
-
-rm -rf /etc/netplan/50-cloud-init.yaml	
-touch /etc/netplan/50-cloud-init.yaml	
-cat << EOF2 | tee /etc/netplan/50-cloud-init.yaml >/dev/null	
-network:	
-  ethernets:	
-      eth0:	
-          dhcp4: true	
-          optional: true	
-  version: 2	
-EOF2
-netplan generate
-netplan --debug apply
 
 EOF
 echo "The chroot container has exited"
@@ -1098,15 +1193,88 @@ sudo fsck.fat -av "/dev/mapper/${MOUNT_IMG}p1"
 UnmountIMG "$TARGET_IMG"
 CompactIMG "$TARGET_IMG"
 
-# Build desktop image
-echo "Creating desktop image ..."
+
+# Build xubuntu-desktop image
+echo "Creating xubuntu-desktop image ..."
+if [ -f "$XUBUNTU_DESKTOP_IMG" ]; then
+  sudo rm -rf "$XUBUNTU_DESKTOP_IMG"
+fi
+cp -vf "$TARGET_IMG" "$XUBUNTU_DESKTOP_IMG"
+# % Expands the target image by approximately 2GB to help us not run out of space and encounter errors
+echo "Expanding desktop image free space ..."
+truncate -s +4009715200 "$XUBUNTU_DESKTOP_IMG"
+sync; sync
+
+MountIMG "$XUBUNTU_DESKTOP_IMG"
+
+# Run fdisk
+# % Get the starting offset of the root partition
+PART_START=$(sudo parted "/dev/${MOUNT_IMG}" -ms unit s p | grep ":ext4" | cut -f 2 -d: | sed 's/[^0-9]//g')
+# % Perform fdisk to correct the partition table
+sudo fdisk "/dev/${MOUNT_IMG}" << EOF
+p
+d
+2
+n
+p
+2
+$PART_START
+
+p
+w
+EOF
+
+UnmountIMG "$XUBUNTU_DESKTOP_IMG"
+MountIMG "$XUBUNTU_DESKTOP_IMG"
+
+# Run e2fsck
+echo "Running e2fsck"
+sudo e2fsck -fva "/dev/mapper/${MOUNT_IMG}p2"
+sync; sync
+sleep "$SLEEP_SHORT"
+UnmountIMG "$XUBUNTU_DESKTOP_IMG"
+MountIMG "$XUBUNTU_DESKTOP_IMG"
+
+# Run resize2fs
+echo "Running resize2fs"
+sudo resize2fs -p "/dev/mapper/${MOUNT_IMG}p2"
+sync; sync
+sleep "$SLEEP_SHORT"
+UnmountIMG "$XUBUNTU_DESKTOP_IMG"
+
+# Compact image after our file operations
+CompactIMG "$XUBUNTU_DESKTOP_IMG"
+MountIMG "$XUBUNTU_DESKTOP_IMG"
+MountIMGPartitions "${MOUNT_IMG}"
+
+sudo chroot /mnt /bin/bash << EOF
+apt update && apt install xubuntu-desktop -y
+/bin/bash /etc/ubuntufixes.sh
+apt dist-upgrade -y
+/bin/bash /etc/ubuntufixes.sh
+EOF
+
+# Run the after clean function
+AfterCleanIMG
+
+# Run fsck on image then unmount and remount
+UnmountIMGPartitions
+sudo fsck.ext4 -pfv "/dev/mapper/${MOUNT_IMG}p2"
+sudo fsck.fat -av "/dev/mapper/${MOUNT_IMG}p1"
+UnmountIMG "$XUBUNTU_DESKTOP_IMG"
+CompactIMG "$XUBUNTU_DESKTOP_IMG"
+
+# -- End xubuntu-desktop
+
+# Build ubuntu-desktop image
+echo "Creating ubuntu-desktop image ..."
 if [ -f "$DESKTOP_IMG" ]; then
   sudo rm -rf "$DESKTOP_IMG"
 fi
-cp -vf "$TARGET_IMG" "$DESKTOP_IMG"
+cp -vf "$XUBUNTU_DESKTOP_IMG" "$DESKTOP_IMG"
 # % Expands the target image by approximately 2GB to help us not run out of space and encounter errors
 echo "Expanding desktop image free space ..."
-truncate -s +3009715200 "$DESKTOP_IMG"
+truncate -s +4009715200 "$DESKTOP_IMG"
 sync; sync
 
 MountIMG "$DESKTOP_IMG"
@@ -1153,6 +1321,11 @@ MountIMGPartitions "${MOUNT_IMG}"
 
 sudo chroot /mnt /bin/bash << EOF
 apt update && apt install ubuntu-desktop -y
+apt remove xubuntu-desktop -y
+apt autoremove -y
+
+/bin/bash /etc/ubuntufixes.sh
+apt dist-upgrade -y
 /bin/bash /etc/ubuntufixes.sh
 EOF
 
@@ -1166,8 +1339,10 @@ sudo fsck.fat -av "/dev/mapper/${MOUNT_IMG}p1"
 UnmountIMG "$DESKTOP_IMG"
 CompactIMG "$DESKTOP_IMG"
 
+# -- End ubuntu-desktop
+
 # Clean firmware
-# % Remove files that haven't changed from the base 18.04.3 files
+# % Remove files that haven't changed from the base firmware files
 cd ~/firmware-ubuntu-1804
 # Remove duplicate files that are already in 1804 and haven't changed
 for f in $(find -L . -type f -print); do
@@ -1193,19 +1368,25 @@ find . -xtype l -delete
 cd ~
 
 # Shrink images
+ShrinkIMG "$XUBUNTU_DESKTOP_IMG"
 ShrinkIMG "$DESKTOP_IMG"
 ShrinkIMG "$TARGET_IMG"
 
 # Compress img into xz file
-echo "Compressing final server img.xz file ..."
+echo "Compressing final ubuntu-server img.xz file ..."
 sleep "$SLEEP_SHORT"
 sudo rm -rf "$TARGET_IMGXZ"
 xz -9e --force --keep --threads=0 --quiet "$TARGET_IMG"
 
-echo "Compressing final desktop img.xz file ..."
+echo "Compressing final ubuntu-desktop img.xz file ..."
 sleep "$SLEEP_SHORT"
 sudo rm -rf "$DESKTOP_IMGXZ"
 xz -9e --force --keep --threads=0 --quiet "$DESKTOP_IMG"
+
+echo "Compressing final xubuntu-desktop img.xz file ..."
+sleep "$SLEEP_SHORT"
+sudo rm -rf "$XUBUNTU_DESKTOP_IMGXZ"
+xz -9e --force --keep --threads=0 --quiet "$XUBUNTU_DESKTOP_IMG"
 
 # Compress our updates used for the autoupdater
 echo "Compressing updates.tar.xz ..."
@@ -1215,4 +1396,3 @@ sudo rm -rf ~/updates.tar.xz
 tar -cf - updates/ | xz -9e -c --threads=0 - > ~/updates.tar.xz
 
 echo "Build completed"
-
